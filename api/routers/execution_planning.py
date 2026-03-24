@@ -161,7 +161,9 @@ def _make_grants(raw: dict, epi: ExecutionPlanningInput) -> list[dict]:
     for fo in (raw.get("funding_opportunities") or [])[:5]:
         fit_score = fo.get("fit_score", 0.0)
         fit_label = "High" if fit_score >= 0.7 else ("Medium" if fit_score >= 0.4 else "Low")
-        focus     = fo.get("fit_rationale", fo.get("agency", ""))[:80]
+        agency    = fo.get("agency", "")
+        amount    = fo.get("amount", "")
+        focus     = f"{agency} · {amount}".strip(" ·") if agency or amount else ""
         stage     = epi.stage.replace("_", " ").title() if epi.stage else "Early"
         grants.append({
             "name":  fo.get("name", fo.get("program_name", "")),
@@ -221,10 +223,19 @@ def _make_manufacturing_flags(raw: dict) -> list[dict]:
             severity = "critical"
         else:
             severity = "warning"
-        # Split long blocker text into title + description
-        parts = b_text.split(".", 1)
-        title = parts[0].strip()[:60]
-        desc  = parts[1].strip() if len(parts) > 1 else b_text
+        # Split blocker text into title + description.
+        # Most blockers use " — " (em-dash) as separator; fall back to "." then to full text.
+        if " — " in b_text:
+            parts = b_text.split(" — ", 1)
+            title = parts[0].strip()
+            desc  = parts[1].strip()
+        elif "." in b_text:
+            parts = b_text.split(".", 1)
+            title = parts[0].strip()
+            desc  = parts[1].strip()
+        else:
+            title = b_text
+            desc  = ""
         flags.append({"title": title, "description": desc, "severity": severity})
     return flags
 
